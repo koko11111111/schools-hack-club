@@ -119,7 +119,7 @@
 <!-- LEADERBOARD -->
 <div class="page" id="page-leaderboard">
   <section class="block">
-    <div class="kicker">Hackatime</div>
+    <div class="kicker">Coding hours</div>
     <h2 class="title">Who's been coding the most</h2>
     <div class="admin-list" id="leaderboard-list" style="margin-top:40px;max-height:none"></div>
   </section>
@@ -227,7 +227,6 @@
           <div class="field"><label>Name</label><input type="text" id="f-name"></div>
           <div class="field"><label>Role</label><input type="text" id="f-role"></div>
           <div class="field"><label>Description</label><input type="text" id="f-desc"></div>
-          <div class="field"><label>Hackatime username (optional)</label><input type="text" id="f-hackatime" placeholder="for the leaderboard"></div>
           <a href="#" class="btn btn-solid" id="team-form-submit" onclick="saveTeamMember();return false;">Add member</a>
           <a href="#" class="btn btn-ghost admin-small-btn" id="team-form-cancel" style="display:none" onclick="cancelTeamEdit();return false;">Cancel edit</a>
           <div class="admin-list" id="admin-team-list"></div>
@@ -265,11 +264,12 @@
         </div>
 
         <div class="admin-panel-card">
-          <h3>Hackatime Leaderboard</h3>
-          <p class="admin-note">Add a Hackatime username to any team member above to include them here. Your API key is stored only in this browser — it's never saved to the site.</p>
-          <div class="field"><label>Your Hackatime API key</label><input type="password" id="hackatime-key" placeholder="Paste your key"></div>
-          <a href="#" class="btn btn-solid" onclick="refreshLeaderboard();return false;">Refresh from Hackatime</a>
-          <p id="leaderboard-status" class="admin-note"></p>
+          <h3 id="leaderboard-form-title">Add leaderboard entry</h3>
+          <div class="field"><label>Name</label><input type="text" id="lb-name" placeholder="Member's name"></div>
+          <div class="field"><label>Hours</label><input type="text" id="lb-hours" placeholder="e.g. 4.5"></div>
+          <a href="#" class="btn btn-solid" id="leaderboard-form-submit" onclick="saveLeaderboardEntry();return false;">Add entry</a>
+          <a href="#" class="btn btn-ghost admin-small-btn" id="leaderboard-form-cancel" style="display:none" onclick="cancelLeaderboardEdit();return false;">Cancel edit</a>
+          <div class="admin-list" id="admin-leaderboard-list"></div>
         </div>
       </div>
 

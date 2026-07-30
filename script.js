@@ -305,7 +305,6 @@ function startEditTeamMember(m){
   document.getElementById('f-name').value = m.name;
   document.getElementById('f-role').value = m.role;
   document.getElementById('f-desc').value = m.desc;
-  document.getElementById('f-hackatime').value = m.hackatime || '';
   document.getElementById('team-form-title').textContent = 'Edit team member';
   document.getElementById('team-form-submit').textContent = 'Save changes';
   document.getElementById('team-form-cancel').style.display = 'inline-block';
@@ -313,7 +312,7 @@ function startEditTeamMember(m){
 
 function cancelTeamEdit(){
   editingTeamId = null;
-  ['f-avatar','f-name','f-role','f-desc','f-hackatime'].forEach(id=>document.getElementById(id).value = '');
+  ['f-avatar','f-name','f-role','f-desc'].forEach(id=>document.getElementById(id).value = '');
   document.getElementById('team-form-title').textContent = 'Add team member';
   document.getElementById('team-form-submit').textContent = 'Add member';
   document.getElementById('team-form-cancel').style.display = 'none';
@@ -324,12 +323,11 @@ function saveTeamMember(){
   const name = document.getElementById('f-name').value.trim();
   const role = document.getElementById('f-role').value.trim();
   const desc = document.getElementById('f-desc').value.trim();
-  const hackatime = document.getElementById('f-hackatime').value.trim();
   if(!name){ alert('Please enter a name.'); return; }
 
   const promise = editingTeamId
-    ? db.collection('team').doc(editingTeamId).set({avatar, name, role, desc, hackatime}, {merge:true})
-    : db.collection('team').add({avatar, name, role, desc, hackatime, order: Date.now()});
+    ? db.collection('team').doc(editingTeamId).set({avatar, name, role, desc}, {merge:true})
+    : db.collection('team').add({avatar, name, role, desc, order: Date.now()});
 
   promise
     .then(()=>{ cancelTeamEdit(); flashSaved(); })
@@ -562,60 +560,94 @@ function toggleRsvp(){
 }
 
 /* ============================================================
-   HACKATIME LEADERBOARD (Firestore collection: leaderboard)
+   LEADERBOARD (Firestore collection: leaderboard)
+   Fully manual — the admin types in a name and hours, same
+   pattern as Team and Resources. No outside API involved.
    ============================================================ */
-function getHackatimeKey(){
-  const input = document.getElementById('hackatime-key');
-  let key = (input && input.value.trim()) || localStorage.getItem('tols_hackatime_key') || '';
-  if(key) localStorage.setItem('tols_hackatime_key', key);
-  return key;
-}
+let leaderboardList = [];
+let editingLeaderboardId = null;
 
-function refreshLeaderboard(){
-  const key = getHackatimeKey();
-  if(!key){ alert('Paste your Hackatime API key first.'); return; }
-  const members = teamList.filter(m=>m.hackatime);
-  if(!members.length){ alert('No team members have a Hackatime username set yet — add one in the Team card.'); return; }
+db.collection('leaderboard').orderBy('hours', 'desc').onSnapshot(snap=>{
+  leaderboardList = [];
+  snap.forEach(d=>leaderboardList.push({id: d.id, ...d.data()}));
+  renderLeaderboard();
+  if(isAdmin) renderAdminLeaderboard();
+});
 
-  const status = document.getElementById('leaderboard-status');
-  status.textContent = 'Fetching…';
-
-  Promise.all(members.map(m=>
-    fetch('https://hackatime.hackclub.com/api/v1/users/' + encodeURIComponent(m.hackatime) + '/stats', {
-      headers: { 'Authorization': 'Bearer ' + key }
-    })
-      .then(r=>r.json())
-      .then(data=>db.collection('leaderboard').doc(m.id).set({
-        displayName: m.name,
-        username: m.hackatime,
-        totalSeconds: data.total_seconds || 0,
-        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-      }))
-      .catch(err=>console.warn('Could not fetch Hackatime stats for', m.hackatime, err))
-  )).then(()=>{
-    status.textContent = 'Updated ' + new Date().toLocaleTimeString();
-  });
-}
-
-db.collection('leaderboard').orderBy('totalSeconds', 'desc').onSnapshot(snap=>{
+function renderLeaderboard(){
   const list = document.getElementById('leaderboard-list');
   if(!list) return;
   list.innerHTML = '';
-  if(snap.empty){
-    list.innerHTML = '<p class="admin-note">No stats yet — check back after the next meeting.</p>';
+  if(!leaderboardList.length){
+    list.innerHTML = '<p class="admin-note">No hours logged yet — check back after the next meeting.</p>';
     return;
   }
-  let rank = 0;
-  snap.forEach(d=>{
-    rank++;
-    const l = d.data();
-    const hours = (l.totalSeconds / 3600).toFixed(1);
+  leaderboardList.forEach((l, i)=>{
     const row = document.createElement('div');
     row.className = 'admin-row';
-    row.innerHTML = `<div class="admin-row-text"><strong>#${rank}</strong>${escapeHtml(l.displayName)}</div><div class="admin-row-actions">${hours} hrs</div>`;
+    row.innerHTML = `<div class="admin-row-text"><strong>#${i+1}</strong>${escapeHtml(l.name)}</div><div class="admin-row-actions">${Number(l.hours).toFixed(1)} hrs</div>`;
     list.appendChild(row);
   });
-});
+}
+
+function renderAdminLeaderboard(){
+  const list = document.getElementById('admin-leaderboard-list');
+  if(!list) return;
+  list.innerHTML = '';
+  if(!leaderboardList.length){
+    list.innerHTML = '<p class="admin-note">No entries yet.</p>';
+    return;
+  }
+  leaderboardList.forEach(l=>{
+    const row = document.createElement('div');
+    row.className = 'admin-row';
+    row.innerHTML = `
+      <div class="admin-row-text"><strong>${Number(l.hours).toFixed(1)}h</strong>${escapeHtml(l.name)}</div>
+      <div class="admin-row-actions">
+        <button type="button">Edit</button>
+        <button type="button" class="danger">Delete</button>
+      </div>
+    `;
+    const [editBtn, delBtn] = row.querySelectorAll('button');
+    editBtn.onclick = ()=>startEditLeaderboardEntry(l);
+    delBtn.onclick = ()=>{
+      if(confirm('Remove ' + l.name + ' from the leaderboard?')) db.collection('leaderboard').doc(l.id).delete();
+    };
+    list.appendChild(row);
+  });
+}
+
+function startEditLeaderboardEntry(l){
+  editingLeaderboardId = l.id;
+  document.getElementById('lb-name').value = l.name;
+  document.getElementById('lb-hours').value = l.hours;
+  document.getElementById('leaderboard-form-title').textContent = 'Edit leaderboard entry';
+  document.getElementById('leaderboard-form-submit').textContent = 'Save changes';
+  document.getElementById('leaderboard-form-cancel').style.display = 'inline-block';
+}
+
+function cancelLeaderboardEdit(){
+  editingLeaderboardId = null;
+  ['lb-name','lb-hours'].forEach(id=>document.getElementById(id).value = '');
+  document.getElementById('leaderboard-form-title').textContent = 'Add leaderboard entry';
+  document.getElementById('leaderboard-form-submit').textContent = 'Add entry';
+  document.getElementById('leaderboard-form-cancel').style.display = 'none';
+}
+
+function saveLeaderboardEntry(){
+  const name = document.getElementById('lb-name').value.trim();
+  const hours = parseFloat(document.getElementById('lb-hours').value);
+  if(!name){ alert('Please enter a name.'); return; }
+  if(isNaN(hours) || hours < 0){ alert('Please enter a valid number of hours.'); return; }
+
+  const promise = editingLeaderboardId
+    ? db.collection('leaderboard').doc(editingLeaderboardId).set({name, hours}, {merge:true})
+    : db.collection('leaderboard').add({name, hours});
+
+  promise
+    .then(()=>{ cancelLeaderboardEdit(); flashSaved(); })
+    .catch(err=>alert('Could not save: ' + err.message));
+}
 
 /* ============================================================
    PROJECT GALLERY (Firestore collection: projects)
