@@ -9,12 +9,12 @@
    the site to a new Firebase project.
    ============================================================ */
 const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-  projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_PROJECT_ID.appspot.com",
-  messagingSenderId: "YOUR_SENDER_ID",
-  appId: "YOUR_APP_ID"
+  apiKey: "AIzaSyDpZM9BS61il3O-bgb_e7O13n6hlHq8ypU",
+  authDomain: "tols-hack-club.firebaseapp.com",
+  projectId: "tols-hack-club",
+  storageBucket: "tols-hack-club.firebasestorage.app",
+  messagingSenderId: "86974902495",
+  appId: "1:86974902495:web:5475bf977c13d77314796a"
 };
 
 firebase.initializeApp(firebaseConfig);
