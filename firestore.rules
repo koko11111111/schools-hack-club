@@ -8,7 +8,7 @@ service cloud.firestore {
     function isAdmin() {
       return request.auth != null &&
         request.auth.token.email in [
-          'YOUR_EMAIL@example.com'
+          'kokomina946@gmail.com'
         ];
     }
 

@@ -10,7 +10,7 @@
    of these emails gets the Admin tab and admin powers. Everyone
    else who signs up is a regular member.
    ============================================================ */
-const ADMIN_EMAILS = ['YOUR_EMAIL@example.com'];
+const ADMIN_EMAILS = ['kokomina946@gmail.com'];
 
 let currentUser = null;   // Firebase Auth user, or null if logged out
 let myProfile = null;     // users/{uid} doc: {name, grade, curious, email}
