@@ -111,12 +111,13 @@ auth.onAuthStateChanged(user=>{
   if(user){
     isAdmin = ADMIN_EMAILS.includes(user.email);
     loadMyProfile().then(()=>{
-      subscribeMembers();
+      subscribeAllMembers();
     });
   } else {
     isAdmin = false;
     myProfile = null;
-    if(unsubscribeMembers){ unsubscribeMembers(); unsubscribeMembers = null; }
+    if(unsubscribeAllMembers){ unsubscribeAllMembers(); unsubscribeAllMembers = null; }
+    allMembers = [];
   }
   document.getElementById('admin-nav-btn').style.display = isAdmin ? 'inline-block' : 'none';
   renderAccountArea();
@@ -348,19 +349,28 @@ function deleteTeamMember(id, name){
    ============================================================ */
 const ROOMS = {
   general:    {title:'# general',       sub:'club-wide'},
-  projects:   {title:'# show-and-tell',  sub:'share what you built'},
-  'dm-sara':  {title:'Sara',             sub:'direct message'},
-  'dm-omar':  {title:'Omar',             sub:'direct message'}
+  projects:   {title:'# show-and-tell',  sub:'share what you built'}
 };
 
 let currentRoom = 'general';
 let unsubscribeMessages = null;
 
+function dmRoomId(uidA, uidB){
+  return 'dm__' + [uidA, uidB].sort().join('__');
+}
+
+function getRoomMeta(name){
+  if(ROOMS[name]) return ROOMS[name];
+  const otherUid = name.replace(/^dm__/, '').split('__').find(id => id !== (currentUser && currentUser.uid));
+  const other = allMembers.find(m=>m.id === otherUid);
+  return {title: other ? other.name : 'Direct message', sub:'direct message'};
+}
+
 function openRoom(name){
   currentRoom = name;
   document.querySelectorAll('.chat-item').forEach(i=>i.classList.toggle('active', i.dataset.room===name));
 
-  const meta = ROOMS[name];
+  const meta = getRoomMeta(name);
   document.getElementById('chat-room-title').textContent = meta.title;
   document.getElementById('chat-room-sub').textContent = meta.sub;
   document.getElementById('chat-text').placeholder = 'Message ' + meta.title;
@@ -470,29 +480,62 @@ function clearRoomMessages(){
 }
 
 /* ============================================================
-   ADMIN — MEMBERS (Firestore collection: users)
-   Everyone with an account shows up here.
+   ALL MEMBERS (Firestore collection: users)
+   Shared by: the DM sidebar (everyone needs to see names to pick
+   who to message) and the admin Members panel (sees grade/curious
+   too, since only the admin's own reads include those fields).
    ============================================================ */
-let unsubscribeMembers = null;
+let allMembers = [];
+let unsubscribeAllMembers = null;
 
-function subscribeMembers(){
-  if(!isAdmin || unsubscribeMembers) return;
-  unsubscribeMembers = db.collection('users').orderBy('createdAt', 'desc').onSnapshot(snap=>{
-    const list = document.getElementById('admin-members-list');
-    if(!list) return;
-    list.innerHTML = '';
-    if(snap.empty){
-      list.innerHTML = '<p class="admin-note">No members yet.</p>';
-      return;
-    }
-    snap.forEach(d=>{
-      const m = d.data();
+function subscribeAllMembers(){
+  if(unsubscribeAllMembers) return;
+  unsubscribeAllMembers = db.collection('users').onSnapshot(snap=>{
+    allMembers = [];
+    snap.forEach(d=>allMembers.push({id: d.id, ...d.data()}));
+    renderDmList();
+    if(isAdmin) renderAdminMembersList();
+  });
+}
+
+function renderDmList(){
+  const container = document.getElementById('dm-list');
+  if(!container || !currentUser) return;
+  const others = allMembers.filter(m=>m.id !== currentUser.uid).sort((a,b)=>(a.name||'').localeCompare(b.name||''));
+  container.innerHTML = '';
+  if(!others.length){
+    container.innerHTML = '<p class="admin-note" style="padding:0 10px 0 4px;font-size:.8rem">No other members yet — invite some friends to join.</p>';
+    return;
+  }
+  others.forEach(m=>{
+    const roomId = dmRoomId(currentUser.uid, m.id);
+    const div = document.createElement('div');
+    div.className = 'chat-item' + (currentRoom === roomId ? ' active' : '');
+    div.dataset.room = roomId;
+    const initial = ((m.name || '?').trim().charAt(0) || '?').toUpperCase();
+    div.innerHTML = `<span class="av-sm">${escapeHtml(initial)}</span> ${escapeHtml(m.name || 'Member')}`;
+    div.onclick = ()=>openRoom(roomId);
+    container.appendChild(div);
+  });
+}
+
+function renderAdminMembersList(){
+  const list = document.getElementById('admin-members-list');
+  if(!list) return;
+  list.innerHTML = '';
+  if(!allMembers.length){
+    list.innerHTML = '<p class="admin-note">No members yet.</p>';
+    return;
+  }
+  allMembers
+    .slice()
+    .sort((a,b)=>(b.createdAt?.seconds||0) - (a.createdAt?.seconds||0))
+    .forEach(m=>{
       const row = document.createElement('div');
       row.className = 'admin-row';
       row.innerHTML = `<div class="admin-row-text"><strong>${escapeHtml(m.name)}</strong>${escapeHtml(m.grade || '')} — ${escapeHtml(m.curious || '')}</div>`;
       list.appendChild(row);
     });
-  });
 }
 
 /* ============================================================
