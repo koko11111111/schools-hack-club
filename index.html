@@ -15,6 +15,9 @@
   <div class="navlinks">
     <button class="active" data-page="home">Home</button>
     <button data-page="team">Team</button>
+    <button data-page="projects">Projects</button>
+    <button data-page="resources">Resources</button>
+    <button data-page="leaderboard">Leaderboard</button>
     <button data-page="join">Join</button>
     <button data-page="chat">Chat</button>
   </div>
@@ -23,9 +26,9 @@
 <!-- HOME -->
 <div class="page active" id="page-home">
   <section class="hero">
-    <div class="eyebrow">High school coding club · est. this year</div>
-    <h1 class="headline">We build real things, <em>every week.</em></h1>
-    <p class="sub">A student-led Hack Club chapter where we design, code, and ship actual projects — websites, games, tools — together. No experience required. Just curiosity.</p>
+    <div class="eyebrow" id="hero-eyebrow">High school coding club · est. this year</div>
+    <h1 class="headline" id="hero-headline">We build real things, <em>every week.</em></h1>
+    <p class="sub" id="hero-sub">A student-led Hack Club chapter where we design, code, and ship actual projects — websites, games, tools — together. No experience required. Just curiosity.</p>
     <div class="cta-row">
       <a href="#" class="btn btn-solid" onclick="showPage('join');return false;">Join the club</a>
       <a href="#" class="btn btn-ghost" onclick="showPage('team');return false;">Meet the team</a>
@@ -61,10 +64,14 @@
     <div class="meeting-card">
       <div>
         <div class="who">Next meeting</div>
-        <h3>Thursday · after school</h3>
-        <p>Location and time confirmed with the school — details shared in the club chat.</p>
+        <h3 id="meeting-day">Thursday · after school</h3>
+        <p id="meeting-note">Location and time confirmed with the school — details shared in the club chat.</p>
+        <p id="rsvp-count" style="margin-top:10px;font-family:var(--font-mono);font-size:12px;color:var(--gold)">Loading RSVPs…</p>
       </div>
-      <a href="#" class="btn btn-solid" onclick="showPage('join');return false;">Reserve your spot</a>
+      <div style="display:flex;flex-direction:column;gap:10px;align-items:flex-end">
+        <a href="#" class="btn btn-solid" onclick="showPage('join');return false;">Reserve your spot</a>
+        <a href="#" class="btn btn-ghost" id="rsvp-btn" onclick="toggleRsvp();return false;">I'm coming</a>
+      </div>
     </div>
   </section>
 </div>
@@ -74,27 +81,47 @@
   <section class="block">
     <div class="kicker">Leadership</div>
     <h2 class="title">The people running this thing</h2>
-    <div class="team-grid">
-      <!-- Founder card: fixed, this doesn't change -->
-      <div class="cartouche">
-        <div class="avatar">L</div>
-        <h3>You</h3>
-        <div class="role">Founder &amp; Leader</div>
-        <p class="desc">Started the chapter, runs meetings, and keeps the momentum going.</p>
-      </div>
-
-      <!--
-        Add more members by copying the block below and editing:
-        avatar letter, name, role, and description.
-
-      <div class="cartouche">
-        <div class="avatar">A</div>
-        <h3>Name</h3>
-        <div class="role">Role</div>
-        <p class="desc">One line about what they do.</p>
-      </div>
-      -->
+    <div class="team-grid" id="team-grid">
+      <!-- rendered by script.js from Firestore -->
     </div>
+  </section>
+</div>
+
+<!-- PROJECTS -->
+<div class="page" id="page-projects">
+  <section class="block block-sand">
+    <div class="kicker">Show &amp; tell</div>
+    <h2 class="title">What the club has built</h2>
+    <div class="join-wrap">
+      <div class="steps" id="projects-grid" style="grid-template-columns:1fr;margin-top:0"></div>
+      <div class="join-card">
+        <h3>Post a project</h3>
+        <p>Share something you made — link it up if it's live.</p>
+        <div class="field"><label>Title</label><input type="text" id="proj-title" placeholder="My cool project"></div>
+        <div class="field"><label>Your name</label><input type="text" id="proj-author" placeholder="Your name"></div>
+        <div class="field"><label>Description</label><input type="text" id="proj-desc" placeholder="What is it, what does it do"></div>
+        <div class="field"><label>Link (optional)</label><input type="text" id="proj-link" placeholder="https://..."></div>
+        <a href="#" class="btn btn-solid" onclick="submitProject();return false;">Post it</a>
+      </div>
+    </div>
+  </section>
+</div>
+
+<!-- RESOURCES -->
+<div class="page" id="page-resources">
+  <section class="block block-sand">
+    <div class="kicker">Library</div>
+    <h2 class="title">Tools &amp; tutorials worth knowing</h2>
+    <div class="steps" id="resources-grid" style="margin-top:48px"></div>
+  </section>
+</div>
+
+<!-- LEADERBOARD -->
+<div class="page" id="page-leaderboard">
+  <section class="block">
+    <div class="kicker">Hackatime</div>
+    <h2 class="title">Who's been coding the most</h2>
+    <div class="admin-list" id="leaderboard-list" style="margin-top:40px;max-height:none"></div>
   </section>
 </div>
 
@@ -112,11 +139,11 @@
       <div class="join-card">
         <h3>Save your spot</h3>
         <p>Tell us a little about you — we'll follow up with meeting details.</p>
-        <div class="field"><label>Name</label><input type="text" placeholder="Your name"></div>
-        <div class="field"><label>Grade</label><input type="text" placeholder="e.g. 10th grade"></div>
-        <div class="field"><label>What are you curious about?</label><input type="text" placeholder="Games, websites, robotics..."></div>
-        <a href="#" class="btn btn-solid" onclick="alert('Wire this up to a Google Form or your school email once you have one.'); return false;">Send</a>
-        <p class="form-note">This form is a placeholder — connect it to a Google Form or your email before sharing the site.</p>
+        <div class="field"><label>Name</label><input type="text" id="join-name" placeholder="Your name"></div>
+        <div class="field"><label>Grade</label><input type="text" id="join-grade" placeholder="e.g. 10th grade"></div>
+        <div class="field"><label>What are you curious about?</label><input type="text" id="join-curious" placeholder="Games, websites, robotics..."></div>
+        <a href="#" class="btn btn-solid" onclick="submitSignup();return false;">Send</a>
+        <p class="form-note">This saves straight to the club's sign-up list — an admin can see it under Admin &gt; Sign-ups.</p>
       </div>
     </div>
   </section>
@@ -139,7 +166,7 @@
       <div class="chat-main">
         <div class="chat-head">
           <h4 id="chat-room-title"># general</h4>
-          <span id="chat-room-sub">4 members</span>
+          <span id="chat-room-sub">club-wide</span>
         </div>
         <div class="chat-log" id="chat-log"></div>
         <div class="chat-input">
@@ -148,15 +175,110 @@
         </div>
       </div>
     </div>
-    <div class="chat-disclaimer">This chat is a live demo running in your browser only — messages aren't sent to a server yet, so nothing syncs between devices. Great for showing the idea; link to Slack/Discord for real messaging.</div>
+    <div class="chat-disclaimer">Messages are stored in Firebase and sync in real time across everyone's browser and device.</div>
+  </section>
+</div>
+
+<!-- ADMIN -->
+<div class="page" id="page-admin">
+  <section class="block">
+    <div class="kicker">Restricted</div>
+    <h2 class="title">Admin panel</h2>
+
+    <div id="admin-login" class="admin-login-box">
+      <p class="admin-note">Sign in with the admin account to edit site content, manage the team list, review sign-ups, and moderate chat.</p>
+      <div class="field"><label>Email</label><input type="email" id="admin-email" placeholder="you@example.com"></div>
+      <div class="field"><label>Password</label><input type="password" id="admin-pass" placeholder="Admin password"></div>
+      <a href="#" class="btn btn-solid" onclick="adminLogin();return false;">Log in</a>
+      <p id="admin-login-error" class="admin-error"></p>
+      <p class="admin-note admin-warning">⚠ This account is created in the Firebase console (Authentication &gt; Users), not in this code — no password is stored in script.js anymore.</p>
+    </div>
+
+    <div id="admin-content" class="admin-content" style="display:none">
+      <div class="admin-topbar">
+        <span class="admin-who">Logged in as admin</span>
+        <a href="#" class="btn btn-ghost admin-small-btn" onclick="adminLogout();return false;">Log out</a>
+      </div>
+
+      <div class="admin-grid">
+        <div class="admin-panel-card">
+          <h3>Site content</h3>
+          <div class="field"><label>Eyebrow text</label><input type="text" id="f-eyebrow"></div>
+          <div class="field"><label>Headline (normal part)</label><input type="text" id="f-headline-plain"></div>
+          <div class="field"><label>Headline (italic part)</label><input type="text" id="f-headline-em"></div>
+          <div class="field"><label>Subtext</label><input type="text" id="f-sub"></div>
+          <div class="field"><label>Meeting day/time</label><input type="text" id="f-meeting-day"></div>
+          <div class="field"><label>Meeting note</label><input type="text" id="f-meeting-note"></div>
+          <a href="#" class="btn btn-solid" onclick="saveSiteContent();return false;">Save site content</a>
+        </div>
+
+        <div class="admin-panel-card">
+          <h3 id="team-form-title">Add team member</h3>
+          <div class="field"><label>Avatar letter</label><input type="text" id="f-avatar" maxlength="2"></div>
+          <div class="field"><label>Name</label><input type="text" id="f-name"></div>
+          <div class="field"><label>Role</label><input type="text" id="f-role"></div>
+          <div class="field"><label>Description</label><input type="text" id="f-desc"></div>
+          <div class="field"><label>Hackatime username (optional)</label><input type="text" id="f-hackatime" placeholder="for the leaderboard"></div>
+          <a href="#" class="btn btn-solid" id="team-form-submit" onclick="saveTeamMember();return false;">Add member</a>
+          <a href="#" class="btn btn-ghost admin-small-btn" id="team-form-cancel" style="display:none" onclick="cancelTeamEdit();return false;">Cancel edit</a>
+          <div class="admin-list" id="admin-team-list"></div>
+        </div>
+
+        <div class="admin-panel-card">
+          <h3>Chat messages</h3>
+          <div class="field"><label>Room</label>
+            <select id="admin-room-select" onchange="renderAdminMessages()"></select>
+          </div>
+          <a href="#" class="btn btn-ghost admin-small-btn" onclick="clearRoomMessages();return false;">Clear all in this room</a>
+          <div class="admin-list" id="admin-msg-list"></div>
+        </div>
+
+        <div class="admin-panel-card">
+          <h3>Sign-ups</h3>
+          <p class="admin-note">Everyone who filled out the Join form.</p>
+          <div class="admin-list" id="admin-signups-list"></div>
+        </div>
+
+        <div class="admin-panel-card">
+          <h3>Projects</h3>
+          <p class="admin-note">Everything posted to the show-and-tell page. Delete anything inappropriate.</p>
+          <div class="admin-list" id="admin-projects-list"></div>
+        </div>
+
+        <div class="admin-panel-card">
+          <h3 id="resource-form-title">Add resource</h3>
+          <div class="field"><label>Title</label><input type="text" id="r-title"></div>
+          <div class="field"><label>Link</label><input type="text" id="r-url" placeholder="https://..."></div>
+          <div class="field"><label>Description</label><input type="text" id="r-desc"></div>
+          <a href="#" class="btn btn-solid" id="resource-form-submit" onclick="saveResource();return false;">Add resource</a>
+          <a href="#" class="btn btn-ghost admin-small-btn" id="resource-form-cancel" style="display:none" onclick="cancelResourceEdit();return false;">Cancel edit</a>
+          <div class="admin-list" id="admin-resources-list"></div>
+        </div>
+
+        <div class="admin-panel-card">
+          <h3>Hackatime Leaderboard</h3>
+          <p class="admin-note">Add a Hackatime username to any team member above to include them here. Your API key is stored only in this browser — it's never saved to the site.</p>
+          <div class="field"><label>Your Hackatime API key</label><input type="password" id="hackatime-key" placeholder="Paste your key"></div>
+          <a href="#" class="btn btn-solid" onclick="refreshLeaderboard();return false;">Refresh from Hackatime</a>
+          <p id="leaderboard-status" class="admin-note"></p>
+        </div>
+      </div>
+
+      <a href="#" class="admin-reset" onclick="resetSiteData();return false;">Reset homepage text to defaults</a>
+    </div>
   </section>
 </div>
 
 <footer>
   <span>TOLS — part of the global Hack Club network</span>
-  <span>Built &amp; shipped by the club leader</span>
+  <span>Built &amp; shipped by the club leader · <a href="#" onclick="showPage('admin');return false;" class="admin-footer-link">Admin</a></span>
 </footer>
 
+<!-- Firebase SDKs (compat build — works with plain <script> tags, no bundler needed) -->
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+<script src="firebase-config.js"></script>
 <script src="script.js"></script>
 </body>
 </html>
