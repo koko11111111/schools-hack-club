@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TOLS</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Work+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<nav class="topbar">
+  <div class="brand"><span class="mark">T</span> TOLS</div>
+  <div class="navlinks">
+    <button class="active" data-page="home">Home</button>
+    <button data-page="team">Team</button>
+    <button data-page="join">Join</button>
+    <button data-page="chat">Chat</button>
+  </div>
+</nav>
+
+<!-- HOME -->
+<div class="page active" id="page-home">
+  <section class="hero">
+    <div class="eyebrow">High school coding club · est. this year</div>
+    <h1 class="headline">We build real things, <em>every week.</em></h1>
+    <p class="sub">A student-led Hack Club chapter where we design, code, and ship actual projects — websites, games, tools — together. No experience required. Just curiosity.</p>
+    <div class="cta-row">
+      <a href="#" class="btn btn-solid" onclick="showPage('join');return false;">Join the club</a>
+      <a href="#" class="btn btn-ghost" onclick="showPage('team');return false;">Meet the team</a>
+    </div>
+    <div class="stats">
+      <div class="stat"><div class="num">01</div><div class="label">Chapter founded</div></div>
+      <div class="stat"><div class="num">Weekly</div><div class="label">Meetings</div></div>
+      <div class="stat"><div class="num">100%</div><div class="label">Student-led</div></div>
+    </div>
+  </section>
+
+  <section class="block block-sand">
+    <div class="kicker">How meetings work</div>
+    <h2 class="title">Three steps, every session</h2>
+    <div class="steps">
+      <div class="step">
+        <div class="n">01</div>
+        <h3>Gather &amp; pick direction</h3>
+        <p>We start together — a short intro to the week's project idea, no prior knowledge assumed.</p>
+      </div>
+      <div class="step">
+        <div class="n">02</div>
+        <h3>Build, at your pace</h3>
+        <p>Everyone works independently or in pairs. Stuck? Ask — someone nearby has hit the same bug.</p>
+      </div>
+      <div class="step">
+        <div class="n">03</div>
+        <h3>Demo what you made</h3>
+        <p>We close every meeting with quick demos. Half-finished is welcome — showing up is the win.</p>
+      </div>
+    </div>
+
+    <div class="meeting-card">
+      <div>
+        <div class="who">Next meeting</div>
+        <h3>Thursday · after school</h3>
+        <p>Location and time confirmed with the school — details shared in the club chat.</p>
+      </div>
+      <a href="#" class="btn btn-solid" onclick="showPage('join');return false;">Reserve your spot</a>
+    </div>
+  </section>
+</div>
+
+<!-- TEAM -->
+<div class="page" id="page-team">
+  <section class="block">
+    <div class="kicker">Leadership</div>
+    <h2 class="title">The people running this thing</h2>
+    <div class="team-grid">
+      <div class="cartouche">
+        <div class="avatar">L</div>
+        <h3>You</h3>
+        <div class="role">Founder &amp; Leader</div>
+        <p class="desc">Started the chapter, runs meetings, and keeps the momentum going.</p>
+      </div>
+      <div class="cartouche">
+        <div class="avatar">?</div>
+        <h3>Co-Leader</h3>
+        <div class="role open">Open position</div>
+        <p class="desc">Clubs run best with 2–3 leaders. Bring a friend on board.</p>
+      </div>
+      <div class="cartouche">
+        <div class="avatar">?</div>
+        <h3>Teacher Advisor</h3>
+        <div class="role open">Open position</div>
+        <p class="desc">A staff sponsor who supports the club at school.</p>
+      </div>
+    </div>
+  </section>
+</div>
+
+<!-- JOIN -->
+<div class="page" id="page-join">
+  <section class="block block-sand">
+    <div class="kicker">Join us</div>
+    <h2 class="title">Getting in takes one meeting</h2>
+    <div class="join-wrap">
+      <ul class="join-list">
+        <li><span class="ico">1</span><div><strong>Show up Thursday</strong><span>No sign-up needed for your first meeting — just come see what we're about.</span></div></li>
+        <li><span class="ico">2</span><div><strong>No experience needed</strong><span>Half the club has never coded before. We start from zero.</span></div></li>
+        <li><span class="ico">3</span><div><strong>Bring your laptop</strong><span>If you don't have one, message us — we'll sort you out for the session.</span></div></li>
+      </ul>
+      <div class="join-card">
+        <h3>Save your spot</h3>
+        <p>Tell us a little about you — we'll follow up with meeting details.</p>
+        <div class="field"><label>Name</label><input type="text" placeholder="Your name"></div>
+        <div class="field"><label>Grade</label><input type="text" placeholder="e.g. 10th grade"></div>
+        <div class="field"><label>What are you curious about?</label><input type="text" placeholder="Games, websites, robotics..."></div>
+        <a href="#" class="btn btn-solid" onclick="alert('Wire this up to a Google Form or your school email once you have one.'); return false;">Send</a>
+        <p class="form-note">This form is a placeholder — connect it to a Google Form or your email before sharing the site.</p>
+      </div>
+    </div>
+  </section>
+</div>
+
+<!-- CHAT -->
+<div class="page" id="page-chat">
+  <section class="block">
+    <div class="kicker">Club chat</div>
+    <h2 class="title">Talk to the club, live</h2>
+    <div class="chat-shell">
+      <aside class="chat-side">
+        <div class="grp-label">Group chats</div>
+        <div class="chat-item active" data-room="general" onclick="openRoom('general')"><span class="dot"></span> general</div>
+        <div class="chat-item" data-room="projects" onclick="openRoom('projects')"><span class="dot"></span> show-and-tell</div>
+        <div class="grp-label">Direct messages</div>
+        <div class="chat-item" data-room="dm-sara" onclick="openRoom('dm-sara')"><span class="av-sm">S</span> Sara</div>
+        <div class="chat-item" data-room="dm-omar" onclick="openRoom('dm-omar')"><span class="av-sm">O</span> Omar</div>
+      </aside>
+      <div class="chat-main">
+        <div class="chat-head">
+          <h4 id="chat-room-title"># general</h4>
+          <span id="chat-room-sub">4 members</span>
+        </div>
+        <div class="chat-log" id="chat-log"></div>
+        <div class="chat-input">
+          <input type="text" id="chat-text" placeholder="Message #general" onkeydown="if(event.key==='Enter')sendMsg()">
+          <button onclick="sendMsg()">Send</button>
+        </div>
+      </div>
+    </div>
+    <div class="chat-disclaimer">This chat is a live demo running in your browser only — messages aren't sent to a server yet, so nothing syncs between devices. Great for showing the idea; link to Slack/Discord for real messaging.</div>
+  </section>
+</div>
+
+<footer>
+  <span>TOLS — part of the global Hack Club network</span>
+  <span>Built &amp; shipped by the club leader</span>
+</footer>
+
+<script src="script.js"></script>
+</body>
+</html>
