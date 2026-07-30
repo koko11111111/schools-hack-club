@@ -1,0 +1,85 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Admin = logged in AND your email is in the allow-list you set
+    // in script.js's ADMIN_EMAILS. Keep the two in sync.
+    function isAdmin() {
+      return request.auth != null &&
+        request.auth.token.email in [
+          'YOUR_EMAIL@example.com'
+        ];
+    }
+
+    function isLoggedIn() {
+      return request.auth != null;
+    }
+
+    // ---- users/{uid} : everyone's account profile (name, grade, curious) ----
+    // You can create/edit only your own profile at signup.
+    // Reading a profile is limited to the owner or the admin — this
+    // holds real names/grades, so it isn't public.
+    match /users/{uid} {
+      allow create: if isLoggedIn() && request.auth.uid == uid;
+      allow read, update: if isLoggedIn() && (request.auth.uid == uid || isAdmin());
+      allow delete: if isAdmin();
+    }
+
+    // ---- site/content : hero text, meeting day/note ----
+    match /site/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // ---- team : leadership cards on the Team page ----
+    match /team/{memberId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // ---- resources : tools/tutorials library ----
+    match /resources/{resourceId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // ---- leaderboard : Hackatime hours ----
+    match /leaderboard/{memberId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // ---- projects : show-and-tell posts ----
+    // Public can browse. Only logged-in members can post, and only
+    // as themselves (authorUid must match their own uid).
+    match /projects/{projectId} {
+      allow read: if true;
+      allow create: if isLoggedIn() && request.resource.data.authorUid == request.auth.uid;
+      allow update, delete: if isAdmin();
+    }
+
+    // ---- rsvps/{uid} : "I'm coming Thursday" ----
+    // Doc id is your own uid, so you can only toggle your own RSVP.
+    match /rsvps/{uid} {
+      allow read: if true;
+      allow create, delete: if isLoggedIn() && request.auth.uid == uid;
+      allow update: if false;
+    }
+
+    // ---- rooms/{roomId}/messages : club chat ----
+    // Members-only: must be logged in to read or post. Only the
+    // admin can delete (moderation); nobody can edit a sent message.
+    match /rooms/{roomId}/messages/{messageId} {
+      allow read: if isLoggedIn();
+      allow create: if isLoggedIn() && request.resource.data.uid == request.auth.uid;
+      allow update: if false;
+      allow delete: if isAdmin();
+    }
+
+    // Everything else: locked by default.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

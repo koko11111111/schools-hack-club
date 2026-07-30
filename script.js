@@ -6,6 +6,17 @@
    ============================================================ */
 
 /* ============================================================
+   CONFIG — put YOUR OWN email(s) here. Whoever logs in with one
+   of these emails gets the Admin tab and admin powers. Everyone
+   else who signs up is a regular member.
+   ============================================================ */
+const ADMIN_EMAILS = ['YOUR_EMAIL@example.com'];
+
+let currentUser = null;   // Firebase Auth user, or null if logged out
+let myProfile = null;     // users/{uid} doc: {name, grade, curious, email}
+let isAdmin = false;
+
+/* ============================================================
    NAVIGATION
    ============================================================ */
 function showPage(name){
@@ -13,9 +24,8 @@ function showPage(name){
   document.getElementById('page-'+name).classList.add('active');
   document.querySelectorAll('.navlinks button').forEach(b=>b.classList.toggle('active', b.dataset.page===name));
   window.scrollTo({top:0, behavior:'smooth'});
-  if(name==='admin'){
-    isAdmin ? showAdminPanel() : showAdminLoginForm();
-  }
+  if(name==='admin') renderAdminGate();
+  if(name==='chat') renderChatGate();
 }
 document.querySelectorAll('.navlinks button').forEach(b=>{
   b.addEventListener('click', ()=>showPage(b.dataset.page));
@@ -28,9 +38,144 @@ function escapeHtml(str){
 }
 
 /* ============================================================
+   AUTH — one email/password flow for everyone. Signing up
+   creates a users/{uid} profile (that's how you "join").
+   Admin-ness is just: is your email in ADMIN_EMAILS?
+   ============================================================ */
+let authMode = 'signup'; // or 'login'
+
+function toggleAuthMode(){
+  authMode = authMode === 'signup' ? 'login' : 'signup';
+  const isSignup = authMode === 'signup';
+  document.getElementById('signup-only-fields').style.display = isSignup ? 'block' : 'none';
+  document.getElementById('auth-form-title').textContent = isSignup ? 'Create your account' : 'Log in';
+  document.getElementById('auth-form-sub').textContent = isSignup
+    ? 'Tell us a bit about you — this becomes your profile.'
+    : 'Welcome back — enter your email and password.';
+  document.getElementById('auth-submit-btn').textContent = isSignup ? 'Create account' : 'Log in';
+  document.getElementById('auth-toggle-link').textContent = isSignup
+    ? 'Already have an account? Log in'
+    : "New here? Create an account";
+  document.getElementById('auth-error').textContent = '';
+}
+
+function handleAuthSubmit(){
+  const email = document.getElementById('auth-email').value.trim();
+  const pass = document.getElementById('auth-pass').value;
+  const errEl = document.getElementById('auth-error');
+  errEl.textContent = '';
+
+  if(!email || !pass){ errEl.textContent = 'Please fill in your email and password.'; return; }
+
+  if(authMode === 'signup'){
+    const name = document.getElementById('su-name').value.trim();
+    const grade = document.getElementById('su-grade').value.trim();
+    const curious = document.getElementById('su-curious').value.trim();
+    if(!name){ errEl.textContent = 'Please enter your name.'; return; }
+
+    auth.createUserWithEmailAndPassword(email, pass)
+      .then(cred => db.collection('users').doc(cred.user.uid).set({
+        name, email, grade, curious,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      }))
+      .then(()=>showPage('home'))
+      .catch(err=> errEl.textContent = err.message);
+  } else {
+    auth.signInWithEmailAndPassword(email, pass)
+      .then(()=>showPage('home'))
+      .catch(()=> errEl.textContent = 'Incorrect email or password.');
+  }
+}
+
+function loadMyProfile(){
+  return db.collection('users').doc(currentUser.uid).get().then(doc=>{
+    myProfile = doc.exists ? doc.data() : null;
+    renderAccountArea();
+  });
+}
+
+function renderAccountArea(){
+  const box = document.getElementById('account-box');
+  if(currentUser){
+    const label = (myProfile && myProfile.name) ? myProfile.name : currentUser.email;
+    box.innerHTML = `<span class="account-name">${escapeHtml(label)}</span><button id="logout-btn" class="account-logout">Log out</button>`;
+    document.getElementById('logout-btn').onclick = ()=>auth.signOut();
+  } else {
+    box.innerHTML = `<button id="login-open-btn" class="account-logout">Log in / Join</button>`;
+    document.getElementById('login-open-btn').onclick = ()=>{ authMode='login'; toggleAuthMode(); toggleAuthMode(); showPage('join'); };
+  }
+}
+
+auth.onAuthStateChanged(user=>{
+  currentUser = user;
+  if(user){
+    isAdmin = ADMIN_EMAILS.includes(user.email);
+    loadMyProfile().then(()=>{
+      subscribeMembers();
+    });
+  } else {
+    isAdmin = false;
+    myProfile = null;
+    if(unsubscribeMembers){ unsubscribeMembers(); unsubscribeMembers = null; }
+  }
+  document.getElementById('admin-nav-btn').style.display = isAdmin ? 'inline-block' : 'none';
+  renderAccountArea();
+  renderChatGate();
+  renderProjectGate();
+
+  if(document.getElementById('page-admin').classList.contains('active')) renderAdminGate();
+  if(document.getElementById('page-chat').classList.contains('active')) renderChatGate();
+});
+
+function renderChatGate(){
+  const locked = document.getElementById('chat-locked');
+  const unlocked = document.getElementById('chat-unlocked');
+  if(currentUser){
+    locked.style.display = 'none';
+    unlocked.style.display = 'block';
+    openRoom(currentRoom);
+  } else {
+    locked.style.display = 'block';
+    unlocked.style.display = 'none';
+  }
+}
+
+function renderProjectGate(){
+  const note = document.getElementById('project-gate-note');
+  const card = document.getElementById('project-form-card');
+  if(!note || !card) return;
+  const fields = card.querySelectorAll('input, .btn-solid');
+  note.style.display = currentUser ? 'none' : 'block';
+  fields.forEach(f=>{
+    if(f.classList.contains('btn-solid') || f.tagName === 'INPUT'){
+      f.style.opacity = currentUser ? '1' : '0.4';
+      f.style.pointerEvents = currentUser ? 'auto' : 'none';
+    }
+  });
+}
+
+function renderAdminGate(){
+  const notAllowed = document.getElementById('admin-not-allowed');
+  const content = document.getElementById('admin-content');
+  if(isAdmin){
+    notAllowed.style.display = 'none';
+    content.style.display = 'block';
+    document.getElementById('admin-who-label').textContent = 'Logged in as ' + (currentUser.email);
+    fillSiteContentForm();
+    renderAdminTeamList();
+    populateRoomSelect();
+    renderAdminMessages();
+  } else {
+    content.style.display = 'none';
+    notAllowed.style.display = 'block';
+    document.getElementById('admin-not-allowed-text').textContent = currentUser
+      ? "Your account (" + currentUser.email + ") isn't an admin on this site."
+      : "You need to be logged in with an admin account to see this page.";
+  }
+}
+
+/* ============================================================
    FALLBACK CONTENT
-   Shown before the "site/content" document exists in Firestore
-   (i.e. before an admin has ever clicked "Save site content").
    ============================================================ */
 function defaultSiteContent(){
   return {
@@ -45,10 +190,6 @@ function defaultSiteContent(){
 
 let siteContent = defaultSiteContent();
 
-/* ============================================================
-   SITE CONTENT (Firestore doc: site/content)
-   Live-updates for every visitor, not just the admin's browser.
-   ============================================================ */
 db.collection('site').doc('content').onSnapshot(doc=>{
   siteContent = doc.exists ? doc.data() : defaultSiteContent();
   renderHero();
@@ -107,7 +248,8 @@ function resetSiteData(){
 }
 
 /* ============================================================
-   TEAM (Firestore collection: team)
+   TEAM (Firestore collection: team) — leadership cards.
+   Still admin-managed directly, separate from regular members.
    ============================================================ */
 let teamList = [];
 
@@ -201,9 +343,8 @@ function deleteTeamMember(id, name){
 }
 
 /* ============================================================
-   CHAT
-   Room list is fixed here (not in Firestore) — only the
-   messages inside each room are stored remotely.
+   CHAT — member-only. Uses your account's name + uid, no more
+   nickname prompt or device id.
    ============================================================ */
 const ROOMS = {
   general:    {title:'# general',       sub:'club-wide'},
@@ -215,24 +356,6 @@ const ROOMS = {
 let currentRoom = 'general';
 let unsubscribeMessages = null;
 
-function getDeviceId(){
-  let id = localStorage.getItem('tols_device_id');
-  if(!id){
-    id = 'dev-' + Date.now() + '-' + Math.random().toString(36).slice(2,8);
-    localStorage.setItem('tols_device_id', id);
-  }
-  return id;
-}
-
-function getMyName(){
-  let name = localStorage.getItem('tols_my_name');
-  if(!name){
-    name = prompt('What name should show next to your messages?', 'Guest') || 'Guest';
-    localStorage.setItem('tols_my_name', name);
-  }
-  return name;
-}
-
 function openRoom(name){
   currentRoom = name;
   document.querySelectorAll('.chat-item').forEach(i=>i.classList.toggle('active', i.dataset.room===name));
@@ -241,6 +364,8 @@ function openRoom(name){
   document.getElementById('chat-room-title').textContent = meta.title;
   document.getElementById('chat-room-sub').textContent = meta.sub;
   document.getElementById('chat-text').placeholder = 'Message ' + meta.title;
+
+  if(!currentUser) return;
 
   if(unsubscribeMessages) unsubscribeMessages();
   unsubscribeMessages = db.collection('rooms').doc(name).collection('messages')
@@ -254,11 +379,10 @@ function openRoom(name){
 }
 
 function renderRoomMessages(messages){
-  const myDevice = getDeviceId();
   const log = document.getElementById('chat-log');
   log.innerHTML = '';
   messages.forEach(m=>{
-    const isMe = m.deviceId === myDevice;
+    const isMe = currentUser && m.uid === currentUser.uid;
     const div = document.createElement('div');
     div.className = 'msg' + (isMe ? ' me' : '');
     div.innerHTML = '<div class="who"></div><div class="bubble"></div>';
@@ -270,12 +394,14 @@ function renderRoomMessages(messages){
 }
 
 function sendMsg(){
+  if(!currentUser) return;
   const input = document.getElementById('chat-text');
   const text = input.value.trim();
   if(!text) return;
+  const who = (myProfile && myProfile.name) ? myProfile.name : currentUser.email;
   db.collection('rooms').doc(currentRoom).collection('messages').add({
-    who: getMyName(),
-    deviceId: getDeviceId(),
+    who,
+    uid: currentUser.uid,
     text,
     createdAt: firebase.firestore.FieldValue.serverTimestamp()
   }).catch(err=>alert('Could not send: ' + err.message));
@@ -344,112 +470,113 @@ function clearRoomMessages(){
 }
 
 /* ============================================================
-   JOIN FORM -> Firestore collection: signups
+   ADMIN — MEMBERS (Firestore collection: users)
+   Everyone with an account shows up here.
    ============================================================ */
-function submitSignup(){
-  const name = document.getElementById('join-name').value.trim();
-  const grade = document.getElementById('join-grade').value.trim();
-  const curious = document.getElementById('join-curious').value.trim();
-  if(!name){ alert('Please enter your name.'); return; }
+let unsubscribeMembers = null;
 
-  db.collection('signups').add({
-    name, grade, curious,
-    createdAt: firebase.firestore.FieldValue.serverTimestamp()
-  }).then(()=>{
-    alert("Thanks! We'll follow up with meeting details.");
-    document.getElementById('join-name').value = '';
-    document.getElementById('join-grade').value = '';
-    document.getElementById('join-curious').value = '';
-  }).catch(err=>alert('Something went wrong, please try again: ' + err.message));
-}
-
-/* ============================================================
-   ADMIN — LOGIN (Firebase Authentication)
-   ============================================================ */
-let isAdmin = false;
-
-function adminLogin(){
-  const email = document.getElementById('admin-email').value.trim();
-  const pass = document.getElementById('admin-pass').value;
-  const err = document.getElementById('admin-login-error');
-  err.textContent = '';
-  auth.signInWithEmailAndPassword(email, pass)
-    .catch(()=>{ err.textContent = 'Incorrect email or password.'; });
-}
-
-function adminLogout(){
-  auth.signOut();
-}
-
-auth.onAuthStateChanged(user=>{
-  isAdmin = !!user;
-  if(document.getElementById('page-admin').classList.contains('active')){
-    isAdmin ? showAdminPanel() : showAdminLoginForm();
-  }
-  if(isAdmin){
-    subscribeSignups();
-  } else if(unsubscribeSignups){
-    unsubscribeSignups();
-    unsubscribeSignups = null;
-  }
-});
-
-function showAdminLoginForm(){
-  document.getElementById('admin-login').style.display = 'block';
-  document.getElementById('admin-content').style.display = 'none';
-  document.getElementById('admin-email').value = '';
-  document.getElementById('admin-pass').value = '';
-  document.getElementById('admin-login-error').textContent = '';
-}
-
-function showAdminPanel(){
-  document.getElementById('admin-login').style.display = 'none';
-  document.getElementById('admin-content').style.display = 'block';
-  fillSiteContentForm();
-  renderAdminTeamList();
-  populateRoomSelect();
-  renderAdminMessages();
-}
-
-/* ============================================================
-   ADMIN — SIGN-UPS (Firestore collection: signups)
-   Only subscribed while an admin is logged in — matches the
-   Firestore rule that signups are admin-read-only.
-   ============================================================ */
-let unsubscribeSignups = null;
-
-function subscribeSignups(){
-  if(unsubscribeSignups) return;
-  unsubscribeSignups = db.collection('signups').orderBy('createdAt', 'desc').onSnapshot(snap=>{
-    const list = document.getElementById('admin-signups-list');
+function subscribeMembers(){
+  if(!isAdmin || unsubscribeMembers) return;
+  unsubscribeMembers = db.collection('users').orderBy('createdAt', 'desc').onSnapshot(snap=>{
+    const list = document.getElementById('admin-members-list');
     if(!list) return;
     list.innerHTML = '';
     if(snap.empty){
-      const empty = document.createElement('p');
-      empty.className = 'admin-note';
-      empty.textContent = 'No sign-ups yet.';
-      list.appendChild(empty);
+      list.innerHTML = '<p class="admin-note">No members yet.</p>';
       return;
     }
     snap.forEach(d=>{
-      const s = d.data();
+      const m = d.data();
       const row = document.createElement('div');
       row.className = 'admin-row';
-      row.innerHTML = `
-        <div class="admin-row-text"><strong>${escapeHtml(s.name)}</strong>${escapeHtml(s.grade)} — ${escapeHtml(s.curious)}</div>
-        <div class="admin-row-actions"><button type="button" class="danger">Delete</button></div>
-      `;
-      row.querySelector('button').onclick = ()=>{
-        db.collection('signups').doc(d.id).delete();
-      };
+      row.innerHTML = `<div class="admin-row-text"><strong>${escapeHtml(m.name)}</strong>${escapeHtml(m.grade || '')} — ${escapeHtml(m.curious || '')}</div>`;
       list.appendChild(row);
     });
   });
 }
 
 /* ============================================================
+   MEETING RSVP (Firestore collection: rsvps, doc id = your uid)
+   Requires an account now — one RSVP per member.
+   ============================================================ */
+db.collection('rsvps').onSnapshot(snap=>{
+  const countEl = document.getElementById('rsvp-count');
+  if(!countEl) return;
+  countEl.textContent = snap.size + (snap.size === 1 ? ' person coming Thursday' : ' people coming Thursday');
+
+  const mine = currentUser && snap.docs.some(d=>d.id === currentUser.uid);
+  const btn = document.getElementById('rsvp-btn');
+  if(btn) btn.textContent = mine ? "Can't make it anymore" : "I'm coming";
+});
+
+function toggleRsvp(){
+  if(!currentUser){ alert('Log in or create an account first.'); showPage('join'); return; }
+  const ref = db.collection('rsvps').doc(currentUser.uid);
+  ref.get().then(doc=>{
+    if(doc.exists) return ref.delete();
+    return ref.set({createdAt: firebase.firestore.FieldValue.serverTimestamp()});
+  }).catch(err=>alert('Could not update RSVP: ' + err.message));
+}
+
+/* ============================================================
+   HACKATIME LEADERBOARD (Firestore collection: leaderboard)
+   ============================================================ */
+function getHackatimeKey(){
+  const input = document.getElementById('hackatime-key');
+  let key = (input && input.value.trim()) || localStorage.getItem('tols_hackatime_key') || '';
+  if(key) localStorage.setItem('tols_hackatime_key', key);
+  return key;
+}
+
+function refreshLeaderboard(){
+  const key = getHackatimeKey();
+  if(!key){ alert('Paste your Hackatime API key first.'); return; }
+  const members = teamList.filter(m=>m.hackatime);
+  if(!members.length){ alert('No team members have a Hackatime username set yet — add one in the Team card.'); return; }
+
+  const status = document.getElementById('leaderboard-status');
+  status.textContent = 'Fetching…';
+
+  Promise.all(members.map(m=>
+    fetch('https://hackatime.hackclub.com/api/v1/users/' + encodeURIComponent(m.hackatime) + '/stats', {
+      headers: { 'Authorization': 'Bearer ' + key }
+    })
+      .then(r=>r.json())
+      .then(data=>db.collection('leaderboard').doc(m.id).set({
+        displayName: m.name,
+        username: m.hackatime,
+        totalSeconds: data.total_seconds || 0,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+      }))
+      .catch(err=>console.warn('Could not fetch Hackatime stats for', m.hackatime, err))
+  )).then(()=>{
+    status.textContent = 'Updated ' + new Date().toLocaleTimeString();
+  });
+}
+
+db.collection('leaderboard').orderBy('totalSeconds', 'desc').onSnapshot(snap=>{
+  const list = document.getElementById('leaderboard-list');
+  if(!list) return;
+  list.innerHTML = '';
+  if(snap.empty){
+    list.innerHTML = '<p class="admin-note">No stats yet — check back after the next meeting.</p>';
+    return;
+  }
+  let rank = 0;
+  snap.forEach(d=>{
+    rank++;
+    const l = d.data();
+    const hours = (l.totalSeconds / 3600).toFixed(1);
+    const row = document.createElement('div');
+    row.className = 'admin-row';
+    row.innerHTML = `<div class="admin-row-text"><strong>#${rank}</strong>${escapeHtml(l.displayName)}</div><div class="admin-row-actions">${hours} hrs</div>`;
+    list.appendChild(row);
+  });
+});
+
+/* ============================================================
    PROJECT GALLERY (Firestore collection: projects)
-   Anyone can post, only the admin can delete.
+   Requires an account to post. Anyone can read/browse.
    ============================================================ */
 let projectsList = [];
 
@@ -482,16 +609,18 @@ function renderProjects(){
 }
 
 function submitProject(){
+  if(!currentUser){ alert('Log in or create an account first.'); showPage('join'); return; }
   const title = document.getElementById('proj-title').value.trim();
-  const author = document.getElementById('proj-author').value.trim();
   const desc = document.getElementById('proj-desc').value.trim();
   const link = document.getElementById('proj-link').value.trim();
-  if(!title || !author){ alert('Please add a title and your name.'); return; }
+  const author = (myProfile && myProfile.name) ? myProfile.name : currentUser.email;
+  if(!title){ alert('Please add a title.'); return; }
   db.collection('projects').add({
     title, author, desc, link,
+    authorUid: currentUser.uid,
     createdAt: firebase.firestore.FieldValue.serverTimestamp()
   }).then(()=>{
-    ['proj-title','proj-author','proj-desc','proj-link'].forEach(id=>document.getElementById(id).value = '');
+    ['proj-title','proj-desc','proj-link'].forEach(id=>document.getElementById(id).value = '');
   }).catch(err=>alert('Could not post: ' + err.message));
 }
 
@@ -519,7 +648,6 @@ function renderAdminProjects(){
 
 /* ============================================================
    RESOURCE LIBRARY (Firestore collection: resources)
-   Admin-managed, same pattern as the team list.
    ============================================================ */
 let resourcesList = [];
 let editingResourceId = null;
@@ -607,91 +735,9 @@ function saveResource(){
 }
 
 /* ============================================================
-   MEETING RSVP (Firestore collection: rsvps, doc id = device id)
-   No login needed — one RSVP per browser/device.
-   ============================================================ */
-db.collection('rsvps').onSnapshot(snap=>{
-  const countEl = document.getElementById('rsvp-count');
-  if(!countEl) return;
-  countEl.textContent = snap.size + (snap.size === 1 ? ' person coming Thursday' : ' people coming Thursday');
-
-  const mine = snap.docs.some(d=>d.id === getDeviceId());
-  const btn = document.getElementById('rsvp-btn');
-  if(btn) btn.textContent = mine ? "Can't make it anymore" : "I'm coming";
-});
-
-function toggleRsvp(){
-  const ref = db.collection('rsvps').doc(getDeviceId());
-  ref.get().then(doc=>{
-    if(doc.exists) return ref.delete();
-    return ref.set({createdAt: firebase.firestore.FieldValue.serverTimestamp()});
-  }).catch(err=>alert('Could not update RSVP: ' + err.message));
-}
-
-/* ============================================================
-   HACKATIME LEADERBOARD (Firestore collection: leaderboard)
-   The admin's API key is stored only in this browser's
-   localStorage and only used from the logged-in admin's own
-   session — it never gets written to Firestore or the public
-   site. The RESULTS (name + hours) are what gets saved and
-   shown publicly.
-   ============================================================ */
-function getHackatimeKey(){
-  const input = document.getElementById('hackatime-key');
-  let key = (input && input.value.trim()) || localStorage.getItem('tols_hackatime_key') || '';
-  if(key) localStorage.setItem('tols_hackatime_key', key);
-  return key;
-}
-
-function refreshLeaderboard(){
-  const key = getHackatimeKey();
-  if(!key){ alert('Paste your Hackatime API key first.'); return; }
-  const members = teamList.filter(m=>m.hackatime);
-  if(!members.length){ alert('No team members have a Hackatime username set yet — add one in the Team card.'); return; }
-
-  const status = document.getElementById('leaderboard-status');
-  status.textContent = 'Fetching…';
-
-  Promise.all(members.map(m=>
-    fetch('https://hackatime.hackclub.com/api/v1/users/' + encodeURIComponent(m.hackatime) + '/stats', {
-      headers: { 'Authorization': 'Bearer ' + key }
-    })
-      .then(r=>r.json())
-      .then(data=>db.collection('leaderboard').doc(m.id).set({
-        displayName: m.name,
-        username: m.hackatime,
-        totalSeconds: data.total_seconds || 0,
-        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-      }))
-      .catch(err=>console.warn('Could not fetch Hackatime stats for', m.hackatime, err))
-  )).then(()=>{
-    status.textContent = 'Updated ' + new Date().toLocaleTimeString();
-  });
-}
-
-db.collection('leaderboard').orderBy('totalSeconds', 'desc').onSnapshot(snap=>{
-  const list = document.getElementById('leaderboard-list');
-  if(!list) return;
-  list.innerHTML = '';
-  if(snap.empty){
-    list.innerHTML = '<p class="admin-note">No stats yet — check back after the next meeting.</p>';
-    return;
-  }
-  let rank = 0;
-  snap.forEach(d=>{
-    rank++;
-    const l = d.data();
-    const hours = (l.totalSeconds / 3600).toFixed(1);
-    const row = document.createElement('div');
-    row.className = 'admin-row';
-    row.innerHTML = `<div class="admin-row-text"><strong>#${rank}</strong>${escapeHtml(l.displayName)}</div><div class="admin-row-actions">${hours} hrs</div>`;
-    list.appendChild(row);
-  });
-});
-
-/* ============================================================
    INIT
    ============================================================ */
 renderHero();
 renderMeeting();
-openRoom('general');
+renderChatGate();
+renderProjectGate();

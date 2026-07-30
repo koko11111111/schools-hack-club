@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>TOLS</title>
+<title>TOLS Hack Club</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Work+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
@@ -20,7 +20,9 @@
     <button data-page="leaderboard">Leaderboard</button>
     <button data-page="join">Join</button>
     <button data-page="chat">Chat</button>
+    <button data-page="admin" id="admin-nav-btn" style="display:none">Admin</button>
   </div>
+  <div id="account-box" class="account-box"></div>
 </nav>
 
 <!-- HOME -->
@@ -81,9 +83,7 @@
   <section class="block">
     <div class="kicker">Leadership</div>
     <h2 class="title">The people running this thing</h2>
-    <div class="team-grid" id="team-grid">
-      <!-- rendered by script.js from Firestore -->
-    </div>
+    <div class="team-grid" id="team-grid"></div>
   </section>
 </div>
 
@@ -94,14 +94,14 @@
     <h2 class="title">What the club has built</h2>
     <div class="join-wrap">
       <div class="steps" id="projects-grid" style="grid-template-columns:1fr;margin-top:0"></div>
-      <div class="join-card">
+      <div class="join-card" id="project-form-card">
         <h3>Post a project</h3>
         <p>Share something you made — link it up if it's live.</p>
         <div class="field"><label>Title</label><input type="text" id="proj-title" placeholder="My cool project"></div>
-        <div class="field"><label>Your name</label><input type="text" id="proj-author" placeholder="Your name"></div>
         <div class="field"><label>Description</label><input type="text" id="proj-desc" placeholder="What is it, what does it do"></div>
         <div class="field"><label>Link (optional)</label><input type="text" id="proj-link" placeholder="https://..."></div>
         <a href="#" class="btn btn-solid" onclick="submitProject();return false;">Post it</a>
+        <p class="form-note" id="project-gate-note" style="display:none">You'll need to <a href="#" onclick="showPage('join');return false;">log in or join</a> first.</p>
       </div>
     </div>
   </section>
@@ -125,25 +125,32 @@
   </section>
 </div>
 
-<!-- JOIN -->
+<!-- JOIN / ACCOUNT -->
 <div class="page" id="page-join">
   <section class="block block-sand">
-    <div class="kicker">Join us</div>
-    <h2 class="title">Getting in takes one meeting</h2>
+    <div class="kicker" id="auth-kicker">Join us</div>
+    <h2 class="title" id="auth-title">Create your account to join</h2>
     <div class="join-wrap">
       <ul class="join-list">
-        <li><span class="ico">1</span><div><strong>Show up Thursday</strong><span>No sign-up needed for your first meeting — just come see what we're about.</span></div></li>
+        <li><span class="ico">1</span><div><strong>Create one account</strong><span>It gets you into chat, RSVPs, and posting projects — no separate sign-ups.</span></div></li>
         <li><span class="ico">2</span><div><strong>No experience needed</strong><span>Half the club has never coded before. We start from zero.</span></div></li>
         <li><span class="ico">3</span><div><strong>Bring your laptop</strong><span>If you don't have one, message us — we'll sort you out for the session.</span></div></li>
       </ul>
       <div class="join-card">
-        <h3>Save your spot</h3>
-        <p>Tell us a little about you — we'll follow up with meeting details.</p>
-        <div class="field"><label>Name</label><input type="text" id="join-name" placeholder="Your name"></div>
-        <div class="field"><label>Grade</label><input type="text" id="join-grade" placeholder="e.g. 10th grade"></div>
-        <div class="field"><label>What are you curious about?</label><input type="text" id="join-curious" placeholder="Games, websites, robotics..."></div>
-        <a href="#" class="btn btn-solid" onclick="submitSignup();return false;">Send</a>
-        <p class="form-note">This saves straight to the club's sign-up list — an admin can see it under Admin &gt; Sign-ups.</p>
+        <h3 id="auth-form-title">Create your account</h3>
+        <p id="auth-form-sub">Tell us a bit about you — this becomes your profile.</p>
+
+        <div id="signup-only-fields">
+          <div class="field"><label>Name</label><input type="text" id="su-name" placeholder="Your name"></div>
+          <div class="field"><label>Grade</label><input type="text" id="su-grade" placeholder="e.g. 10th grade"></div>
+          <div class="field"><label>What are you curious about?</label><input type="text" id="su-curious" placeholder="Games, websites, robotics..."></div>
+        </div>
+        <div class="field"><label>Email</label><input type="email" id="auth-email" placeholder="you@example.com"></div>
+        <div class="field"><label>Password</label><input type="password" id="auth-pass" placeholder="At least 6 characters"></div>
+
+        <a href="#" class="btn btn-solid" id="auth-submit-btn" onclick="handleAuthSubmit();return false;">Create account</a>
+        <p id="auth-error" class="admin-error"></p>
+        <p class="form-note"><a href="#" onclick="toggleAuthMode();return false;" id="auth-toggle-link">Already have an account? Log in</a></p>
       </div>
     </div>
   </section>
@@ -154,28 +161,35 @@
   <section class="block">
     <div class="kicker">Club chat</div>
     <h2 class="title">Talk to the club, live</h2>
-    <div class="chat-shell">
-      <aside class="chat-side">
-        <div class="grp-label">Group chats</div>
-        <div class="chat-item active" data-room="general" onclick="openRoom('general')"><span class="dot"></span> general</div>
-        <div class="chat-item" data-room="projects" onclick="openRoom('projects')"><span class="dot"></span> show-and-tell</div>
-        <div class="grp-label">Direct messages</div>
-        <div class="chat-item" data-room="dm-sara" onclick="openRoom('dm-sara')"><span class="av-sm">S</span> Sara</div>
-        <div class="chat-item" data-room="dm-omar" onclick="openRoom('dm-omar')"><span class="av-sm">O</span> Omar</div>
-      </aside>
-      <div class="chat-main">
-        <div class="chat-head">
-          <h4 id="chat-room-title"># general</h4>
-          <span id="chat-room-sub">club-wide</span>
-        </div>
-        <div class="chat-log" id="chat-log"></div>
-        <div class="chat-input">
-          <input type="text" id="chat-text" placeholder="Message #general" onkeydown="if(event.key==='Enter')sendMsg()">
-          <button onclick="sendMsg()">Send</button>
+
+    <div id="chat-locked" class="admin-login-box" style="display:none">
+      <p class="admin-note">Chat is for club members only — <a href="#" onclick="showPage('join');return false;" style="text-decoration:underline">log in or create an account</a> to join the conversation.</p>
+    </div>
+
+    <div id="chat-unlocked" style="display:none">
+      <div class="chat-shell">
+        <aside class="chat-side">
+          <div class="grp-label">Group chats</div>
+          <div class="chat-item active" data-room="general" onclick="openRoom('general')"><span class="dot"></span> general</div>
+          <div class="chat-item" data-room="projects" onclick="openRoom('projects')"><span class="dot"></span> show-and-tell</div>
+          <div class="grp-label">Direct messages</div>
+          <div class="chat-item" data-room="dm-sara" onclick="openRoom('dm-sara')"><span class="av-sm">S</span> Sara</div>
+          <div class="chat-item" data-room="dm-omar" onclick="openRoom('dm-omar')"><span class="av-sm">O</span> Omar</div>
+        </aside>
+        <div class="chat-main">
+          <div class="chat-head">
+            <h4 id="chat-room-title"># general</h4>
+            <span id="chat-room-sub">club-wide</span>
+          </div>
+          <div class="chat-log" id="chat-log"></div>
+          <div class="chat-input">
+            <input type="text" id="chat-text" placeholder="Message #general" onkeydown="if(event.key==='Enter')sendMsg()">
+            <button onclick="sendMsg()">Send</button>
+          </div>
         </div>
       </div>
+      <div class="chat-disclaimer">Messages are stored in Firebase under your account and sync in real time for everyone.</div>
     </div>
-    <div class="chat-disclaimer">Messages are stored in Firebase and sync in real time across everyone's browser and device.</div>
   </section>
 </div>
 
@@ -185,19 +199,15 @@
     <div class="kicker">Restricted</div>
     <h2 class="title">Admin panel</h2>
 
-    <div id="admin-login" class="admin-login-box">
-      <p class="admin-note">Sign in with the admin account to edit site content, manage the team list, review sign-ups, and moderate chat.</p>
-      <div class="field"><label>Email</label><input type="email" id="admin-email" placeholder="you@example.com"></div>
-      <div class="field"><label>Password</label><input type="password" id="admin-pass" placeholder="Admin password"></div>
-      <a href="#" class="btn btn-solid" onclick="adminLogin();return false;">Log in</a>
-      <p id="admin-login-error" class="admin-error"></p>
-      <p class="admin-note admin-warning">⚠ This account is created in the Firebase console (Authentication &gt; Users), not in this code — no password is stored in script.js anymore.</p>
+    <div id="admin-not-allowed" class="admin-login-box" style="display:none">
+      <p class="admin-note" id="admin-not-allowed-text">You need to be logged in with an admin account to see this page.</p>
+      <a href="#" class="btn btn-solid" onclick="showPage('join');return false;">Log in</a>
     </div>
 
     <div id="admin-content" class="admin-content" style="display:none">
       <div class="admin-topbar">
-        <span class="admin-who">Logged in as admin</span>
-        <a href="#" class="btn btn-ghost admin-small-btn" onclick="adminLogout();return false;">Log out</a>
+        <span class="admin-who" id="admin-who-label">Logged in as admin</span>
+        <a href="#" class="btn btn-ghost admin-small-btn" onclick="auth.signOut();return false;">Log out</a>
       </div>
 
       <div class="admin-grid">
@@ -234,9 +244,9 @@
         </div>
 
         <div class="admin-panel-card">
-          <h3>Sign-ups</h3>
-          <p class="admin-note">Everyone who filled out the Join form.</p>
-          <div class="admin-list" id="admin-signups-list"></div>
+          <h3>Members</h3>
+          <p class="admin-note">Everyone with an account — name, grade, and interests come from their profile.</p>
+          <div class="admin-list" id="admin-members-list"></div>
         </div>
 
         <div class="admin-panel-card">
@@ -271,10 +281,9 @@
 
 <footer>
   <span>TOLS — part of the global Hack Club network</span>
-  <span>Built &amp; shipped by the club leader · <a href="#" onclick="showPage('admin');return false;" class="admin-footer-link">Admin</a></span>
+  <span>Built &amp; shipped by the club leader</span>
 </footer>
 
-<!-- Firebase SDKs (compat build — works with plain <script> tags, no bundler needed) -->
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
